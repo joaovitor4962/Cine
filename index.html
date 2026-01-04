@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>It Cloud Solutions - Cine</title>
+    <title>It Cloud Solutions - Watch Together</title>
     <style>
         * {
             margin: 0;
@@ -241,7 +241,7 @@
             <div class="logo-container">
                 <div class="logo-placeholder">IT CLOUD SOLUTIONS</div>
             </div>
-            <h1>🎬 Cine João e Julia</h1>
+            <h1>🎬 Watch Together</h1>
             <p class="subtitle">Assista filmes sincronizados em tempo real</p>
         </header>
 
@@ -252,9 +252,12 @@
             </div>
             
             <div class="info-box">
-                <strong>💡 Dica do João Vitor Mayolli Guido:</strong>
+                <strong>💡 Como adicionar mais filmes:</strong>
                 <ol style="margin-left: 20px; margin-top: 10px;">
-                    <li>Clique em um dos filmes que escolheram, de o play e aguarde o João sincronizar</li>
+                    <li>Faça upload do filme no <strong>Google Drive</strong></li>
+                    <li>Compartilhe o arquivo como "Qualquer pessoa com o link"</li>
+                    <li>Copie o <strong>ID</strong> do link (parte entre <code>/d/</code> e <code>/view</code>)</li>
+                    <li>Adicione no código: <code>{title: "Nome", driveId: "SEU_ID", icon: "🎬"}</code></li>
                 </ol>
             </div>
         </div>
@@ -280,26 +283,19 @@
 
     <script>
         // CONFIGURE SEUS FILMES AQUI
+        // Para Google Drive: use o ID do arquivo (a parte entre /d/ e /view)
+        // Exemplo: https://drive.google.com/file/d/16Ao1uCDy8XuuhdCuyjf34lIDnPfuBZFE/view
+        // ID: 16Ao1uCDy8XuuhdCuyjf34lIDnPfuBZFE
+        
         const movies = [
             {
-                title: "Como eu era antes de voce",
-                file: "https://drive.google.com/uc?export=download&id=16Ao1uCDy8XuuhdCuyjf34lIDnPfuBZFE",
+                title: "Meu Filme",
+                driveId: "16Ao1uCDy8XuuhdCuyjf34lIDnPfuBZFE",
                 icon: "🎬",
-                duration: "1h 50min"
-            },
-            {
-                title: "Filme de Exemplo 2",
-                file: "movies/filme2.mp4",
-                icon: "🎥",
-                duration: "1h 45min"
-            },
-            {
-                title: "Filme de Exemplo 3",
-                file: "movies/filme3.mp4",
-                icon: "🍿",
-                duration: "2h 15min"
+                duration: "2h 30min"
             }
             // Adicione mais filmes aqui seguindo o mesmo formato
+            // Para arquivos locais, use: file: "movies/filme.mp4" (sem driveId)
         ];
 
         const moviesGrid = document.getElementById('moviesGrid');
@@ -334,12 +330,27 @@
         // Selecionar filme
         async function selectMovie(movie) {
             selectedMovie = movie;
-            videoPlayer.src = movie.file;
+            
+            // Verificar se é Google Drive ou arquivo local
+            let videoUrl;
+            if (movie.driveId) {
+                // Formato para streaming do Google Drive
+                videoUrl = `https://drive.google.com/uc?export=download&id=${movie.driveId}`;
+                statusText.textContent = '⏳ Carregando do Google Drive...';
+            } else {
+                videoUrl = movie.file;
+                statusText.textContent = '⏳ Carregando...';
+            }
+            
+            videoPlayer.src = videoUrl;
+            videoPlayer.muted = false;
+            videoPlayer.volume = 1.0;
             currentMovie.textContent = `🎬 ${movie.title}`;
             playerSection.classList.add('active');
             
-            // Salvar seleção para sincronizar
-            await saveState('select', 0, movie.file);
+            // Salvar seleção para sincronizar (usar driveId ou file)
+            const movieIdentifier = movie.driveId || movie.file;
+            await saveState('select', 0, movieIdentifier);
             startSync();
             
             statusText.textContent = `Filme selecionado: ${movie.title}`;
@@ -360,17 +371,24 @@
         // Controles de reprodução
         playBtn.addEventListener('click', async () => {
             try {
+                // Garantir que o som está ativado
+                videoPlayer.muted = false;
+                videoPlayer.volume = 1.0;
+                
                 await videoPlayer.play();
-                await saveState('play', videoPlayer.currentTime, selectedMovie.file);
+                const movieIdentifier = selectedMovie.driveId || selectedMovie.file;
+                await saveState('play', videoPlayer.currentTime, movieIdentifier);
                 statusText.textContent = '▶️ Reproduzindo...';
             } catch (err) {
                 console.error('Erro ao reproduzir:', err);
+                statusText.textContent = '❌ Erro ao reproduzir - clique em play novamente';
             }
         });
 
         pauseBtn.addEventListener('click', async () => {
             videoPlayer.pause();
-            await saveState('pause', videoPlayer.currentTime, selectedMovie.file);
+            const movieIdentifier = selectedMovie.driveId || selectedMovie.file;
+            await saveState('pause', videoPlayer.currentTime, movieIdentifier);
             statusText.textContent = '⏸️ Pausado';
         });
 
@@ -401,8 +419,9 @@
                     const state = JSON.parse(result.value);
                     
                     // Verificar se precisa mudar de filme
-                    if (state.movie && state.movie !== selectedMovie?.file) {
-                        const movie = movies.find(m => m.file === state.movie);
+                    const currentIdentifier = selectedMovie?.driveId || selectedMovie?.file;
+                    if (state.movie && state.movie !== currentIdentifier) {
+                        const movie = movies.find(m => (m.driveId || m.file) === state.movie);
                         if (movie) {
                             selectMovie(movie);
                             return;
@@ -437,7 +456,8 @@
         // Atualizar posição durante reprodução
         videoPlayer.addEventListener('timeupdate', () => {
             if (!videoPlayer.paused && selectedMovie && Math.floor(videoPlayer.currentTime) % 5 === 0) {
-                saveState('play', videoPlayer.currentTime, selectedMovie.file);
+                const movieIdentifier = selectedMovie.driveId || selectedMovie.file;
+                saveState('play', videoPlayer.currentTime, movieIdentifier);
             }
         });
 
@@ -450,5 +470,4 @@
         });
     </script>
 </body>
-
 </html>
