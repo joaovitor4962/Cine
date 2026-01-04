@@ -334,26 +334,65 @@
             // Verificar se é Google Drive ou arquivo local
             let videoUrl;
             if (movie.driveId) {
-                // Formato para streaming do Google Drive
-                videoUrl = `https://drive.google.com/uc?export=download&id=${movie.driveId}`;
+                // Usar formato embed do Google Drive para melhor compatibilidade
+                videoUrl = `https://drive.google.com/file/d/${movie.driveId}/preview`;
                 statusText.textContent = '⏳ Carregando do Google Drive...';
+                
+                // Usar iframe para Google Drive
+                const iframe = document.createElement('iframe');
+                iframe.src = videoUrl;
+                iframe.width = '100%';
+                iframe.style.height = '600px';
+                iframe.style.borderRadius = '10px';
+                iframe.allow = 'autoplay';
+                iframe.allowFullscreen = true;
+                
+                // Substituir o player de vídeo por iframe
+                videoPlayer.style.display = 'none';
+                if (videoPlayer.nextElementSibling?.tagName === 'IFRAME') {
+                    videoPlayer.nextElementSibling.remove();
+                }
+                videoPlayer.parentNode.insertBefore(iframe, videoPlayer.nextSibling);
+                
+                currentMovie.textContent = `🎬 ${movie.title}`;
+                playerSection.classList.add('active');
+                
+                // Salvar seleção para sincronizar
+                await saveState('select', 0, movie.driveId);
+                
+                statusText.textContent = `Filme carregado: ${movie.title} - Use os controles do player do Google Drive`;
+                
+                // Desabilitar controles customizados (o iframe tem seus próprios controles)
+                playBtn.style.display = 'none';
+                pauseBtn.style.display = 'none';
+                syncBtn.style.display = 'none';
             } else {
+                // Arquivo local
                 videoUrl = movie.file;
                 statusText.textContent = '⏳ Carregando...';
+                
+                // Remover iframe se existir
+                if (videoPlayer.nextElementSibling?.tagName === 'IFRAME') {
+                    videoPlayer.nextElementSibling.remove();
+                }
+                
+                videoPlayer.style.display = 'block';
+                videoPlayer.src = videoUrl;
+                videoPlayer.muted = false;
+                videoPlayer.volume = 1.0;
+                currentMovie.textContent = `🎬 ${movie.title}`;
+                playerSection.classList.add('active');
+                
+                // Mostrar controles customizados
+                playBtn.style.display = 'inline-block';
+                pauseBtn.style.display = 'inline-block';
+                syncBtn.style.display = 'inline-block';
+                
+                await saveState('select', 0, movie.file);
+                startSync();
+                
+                statusText.textContent = `Filme selecionado: ${movie.title}`;
             }
-            
-            videoPlayer.src = videoUrl;
-            videoPlayer.muted = false;
-            videoPlayer.volume = 1.0;
-            currentMovie.textContent = `🎬 ${movie.title}`;
-            playerSection.classList.add('active');
-            
-            // Salvar seleção para sincronizar (usar driveId ou file)
-            const movieIdentifier = movie.driveId || movie.file;
-            await saveState('select', 0, movieIdentifier);
-            startSync();
-            
-            statusText.textContent = `Filme selecionado: ${movie.title}`;
             
             // Scroll suave até o player
             playerSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
